@@ -1,0 +1,28 @@
+# ── Virtual environment ──────────────────────────────────────────────────────
+.venv/
+
+# ── API Keys e segreti ───────────────────────────────────────────────────────
+.env
+.env.*
+
+# ── Vector DB (rigenerato in Colab via ingest.py) ────────────────────────────
+chroma_db_storage/
+audit.db
+
+# ── Script di scaffolding (sostituiti da generate_pdfs_colab.py) ─────────────
+scripts/
+convert_to_pdf.py
+generate_mock_data.py
+
+# ── Requirements (sarà riscritto per Colab) ──────────────────────────────────
+requirements.txt
+
+# ── Python cache ─────────────────────────────────────────────────────────────
+__pycache__/
+*.py[cod]
+*.pyo
+.mypy_cache/
+.ruff_cache/
+
+# ── macOS ────────────────────────────────────────────────────────────────────
+.DS_Store

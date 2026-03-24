@@ -1,0 +1,22 @@
+# FinSecure Analytics — Dipendenze Google Colab
+# Installare con: pip install -r requirements_colab.txt
+
+# ── RAG Pipeline ────────────────────────────────────────────────────────────
+llama-index-core
+llama-index-llms-openai
+llama-index-embeddings-openai
+llama-index-vector-stores-chroma
+llama-parse
+chromadb
+python-dotenv
+
+# ── Agent / LLM Orchestration ───────────────────────────────────────────────
+langchain
+langchain-core
+langchain-openai
+langchain-mcp-adapters
+mcp
+
+# ── UI ──────────────────────────────────────────────────────────────────────
+gradio
+nest-asyncio
