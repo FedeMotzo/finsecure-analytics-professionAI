@@ -274,4 +274,4 @@ with gr.Blocks(title="FinSecure Analytics — AI Audit Terminal") as demo:
         outputs=[kpi_table, findings_table],
     )
 
-demo.launch(css=CSS, share=True)
+demo.launch(css=CSS, share=True, show_error=True, quiet=False)
