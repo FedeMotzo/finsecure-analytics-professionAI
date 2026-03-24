@@ -197,7 +197,7 @@ class FinSecureAgent:
         mcp_connection = StdioConnection(
             transport="stdio",
             command=sys.executable,
-            args=[MCP_SERVER_PATH],
+            args=["-u", MCP_SERVER_PATH],
         )
         self._mcp_client = MultiServerMCPClient(
             connections={"risk_simulator": mcp_connection}
