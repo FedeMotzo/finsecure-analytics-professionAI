@@ -2,15 +2,10 @@ import asyncio
 import io
 import logging
 import os
-import re
 import sqlite3
 import sys
 import uuid
 from pathlib import Path
-
-import matplotlib
-matplotlib.use("Agg")
-import matplotlib.pyplot as plt
 
 import gradio as gr
 import nest_asyncio
@@ -99,106 +94,6 @@ def load_findings_rows() -> list[list]:
     ]
 
 
-def _parse_numeric(value_str: str) -> float | None:
-    """Estrae un valore numerico da stringhe KPI come '€142.5M' o '6.540 K€'."""
-    if not value_str or value_str == "N/D":
-        return None
-    clean = value_str.replace("\u20ac", "").replace("$", "").replace(" ", "")
-    # Gestione separatore migliaia italiano (.) vs decimale
-    # Se c'è un solo punto e cifre dopo, trattalo come decimale
-    # Se c'è una virgola seguita da cifre, quello è il decimale
-    clean = clean.replace(",", ".")
-    multiplier = 1.0
-    upper = clean.upper()
-    if upper.endswith("M"):
-        multiplier = 1.0
-        clean = clean[:-1]
-    elif upper.endswith("K"):
-        multiplier = 0.001
-        clean = clean[:-1]
-    # Rimuove tutto tranne cifre e punto
-    clean = re.sub(r"[^\d.]", "", clean)
-    if not clean:
-        return None
-    try:
-        return float(clean) * multiplier
-    except ValueError:
-        return None
-
-
-def build_kpi_chart():
-    """Grafico a barre orizzontali dei KPI (valori in milioni)."""
-    fig, ax = plt.subplots(figsize=(5, 3))
-    if not DB_PATH.exists():
-        ax.text(0.5, 0.5, "DB non trovato", ha="center", va="center", transform=ax.transAxes)
-        fig.tight_layout()
-        return fig
-
-    with sqlite3.connect(DB_PATH) as conn:
-        rows = conn.execute("SELECT label, value, status FROM kpis ORDER BY id").fetchall()
-
-    labels, values, colors = [], [], []
-    color_map = {"ok": "#22c55e", "warning": "#eab308", "critical": "#ef4444"}
-
-    for label, value_str, status in rows:
-        num = _parse_numeric(value_str)
-        if num is not None:
-            labels.append(label)
-            values.append(num)
-            colors.append(color_map.get(status, "#6b7280"))
-
-    if not labels:
-        ax.text(0.5, 0.5, "Nessun KPI numerico", ha="center", va="center", transform=ax.transAxes)
-        fig.tight_layout()
-        return fig
-
-    bars = ax.barh(labels, values, color=colors)
-    ax.set_xlabel("Valore (M\u20ac)")
-    ax.set_title("KPI Finanziari Q3 2025", fontsize=11, fontweight="bold")
-    for bar, v in zip(bars, values):
-        ax.text(bar.get_width() + max(values) * 0.02, bar.get_y() + bar.get_height() / 2,
-                f"{v:.1f}", va="center", fontsize=9)
-    ax.invert_yaxis()
-    fig.tight_layout()
-    return fig
-
-
-def build_findings_chart():
-    """Grafico a barre delle criticita per livello di severita."""
-    fig, ax = plt.subplots(figsize=(5, 3))
-    if not DB_PATH.exists():
-        ax.text(0.5, 0.5, "DB non trovato", ha="center", va="center", transform=ax.transAxes)
-        fig.tight_layout()
-        return fig
-
-    with sqlite3.connect(DB_PATH) as conn:
-        rows = conn.execute(
-            "SELECT severity, COUNT(*) FROM findings GROUP BY severity"
-        ).fetchall()
-
-    if not rows:
-        ax.text(0.5, 0.5, "Nessuna criticita rilevata", ha="center", va="center", transform=ax.transAxes)
-        fig.tight_layout()
-        return fig
-
-    sev_order = {"CRITICO": 0, "ALTO": 1, "MEDIO": 2}
-    rows = sorted(rows, key=lambda r: sev_order.get(r[0], 99))
-    severities = [r[0] for r in rows]
-    counts = [r[1] for r in rows]
-    sev_colors = {"CRITICO": "#ef4444", "ALTO": "#eab308", "MEDIO": "#f97316"}
-    colors = [sev_colors.get(s, "#6b7280") for s in severities]
-
-    bars = ax.bar(severities, counts, color=colors)
-    ax.set_ylabel("Conteggio")
-    ax.set_title("Criticita per Severita", fontsize=11, fontweight="bold")
-    ax.yaxis.set_major_locator(plt.MaxNLocator(integer=True))
-    for bar, c in zip(bars, counts):
-        ax.text(bar.get_x() + bar.get_width() / 2, bar.get_height() + 0.15,
-                str(c), ha="center", fontweight="bold", fontsize=10)
-    fig.tight_layout()
-    return fig
-
-
 async def _save_findings_to_db(findings: list[dict], session_id: str) -> None:
     try:
         with sqlite3.connect(DB_PATH) as conn:
@@ -259,8 +154,7 @@ def new_session():
 
 
 def refresh_dashboard():
-    plt.close("all")
-    return load_kpi_rows(), build_kpi_chart(), load_findings_rows(), build_findings_chart()
+    return load_kpi_rows(), load_findings_rows()
 
 
 # ── UI ───────────────────────────────────────────────────────────────────────
@@ -288,7 +182,6 @@ with gr.Blocks(title="FinSecure Analytics") as demo:
         # ── Colonna destra: dashboard ────────────────────────────────────
         with gr.Column(scale=35):
             gr.Markdown("### KPI Q3 2025")
-            kpi_chart = gr.Plot(value=build_kpi_chart())
             kpi_table = gr.Dataframe(
                 value=load_kpi_rows(),
                 headers=["KPI", "Valore", "Stato"],
@@ -296,7 +189,6 @@ with gr.Blocks(title="FinSecure Analytics") as demo:
             )
 
             gr.Markdown("### Criticita individuate")
-            findings_chart = gr.Plot(value=build_findings_chart())
             findings_table = gr.Dataframe(
                 value=load_findings_rows(),
                 headers=["Severita", "Descrizione", "Fonte", "Rilevata il"],
@@ -309,6 +201,6 @@ with gr.Blocks(title="FinSecure Analytics") as demo:
     msg.submit(respond, [msg, chatbot, thread_state], [msg, chatbot, thread_state])
     send.click(respond, [msg, chatbot, thread_state], [msg, chatbot, thread_state])
     clear.click(new_session, outputs=[chatbot, thread_state])
-    refresh_btn.click(refresh_dashboard, outputs=[kpi_table, kpi_chart, findings_table, findings_chart])
+    refresh_btn.click(refresh_dashboard, outputs=[kpi_table, findings_table])
 
 demo.launch(share=True)
